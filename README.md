@@ -1,27 +1,91 @@
-# monos-artwork-template
+# Error Diffusion
 
-## Development Server
+3D シーン(三角メッシュと円)、または読み込んだ画像に、Floyd-Steinberg 法(誤差拡散)のディザリングをかけるツールです。p5.js(WEBGL)で動きます。結果は PNG と SVG で保存できます。
 
-### Quick Start (with hot reload)
+## 起動方法
+
 ```bash
 npm run dev
 ```
-This will start a local server with hot reload at http://localhost:8080
 
-### Alternative commands
-- `npm run dev:sync` - Browser-sync with multi-device sync
-- `npm start` - Python simple server (no hot reload)
+http://localhost:8080 でホットリロード付きのサーバーが起動します。
 
-## how to set query parameters
-- Adding params to the end of the URL.
+その他のコマンド:
+- `npm run dev:sync` - browser-sync で起動(複数デバイスで同期)
+- `npm start` - Python の簡易サーバー(ホットリロードなし、ポート 8000)
 
-ex.
-http://localhost:63342/monos-artwork-template/index.html?a=0.1&b=0.1&c=0.9&d=0.5&e=true
+依存パッケージのインストールは不要です(すべて `npx` で実行します)。
 
-## Save canvas tag as image
-- Press `s` key to save
+## 使い方
 
-※ The name of canvas tag must be `artCanvas`
+### メッシュと円のモード(起動時)
+三角メッシュの起伏と、黄色・青の円 22 個を描き、その絵にディザリングをかけます。キャンバスは 630×891px です。
 
-## Program URL
-https://jhorikawa.github.io/MYAF2025/
+### 画像モード
+- パネルの先頭のファイル選択、またはキャンバスへのドラッグ&ドロップで、画像を読み込みます。
+- キャンバスは、読み込んだ画像の原寸になります。長辺が 4096px を超える画像だけ、縦横比を保って縮小します。
+- 透明な部分は、白として扱います。
+- `Clear Image` で、メッシュと円のモードに戻ります。
+
+## パネルの操作
+
+右上のパネルで操作します。`d` キーで表示と非表示を切り替えられます。
+
+### 共通
+| 項目 | 内容 |
+|---|---|
+| 解像度 | ディザリングの細かさ(0.07〜1)。小さいほどドットが粗くなります |
+| 閾値 | 各色を 0 か 255 に分ける境目(3〜255) |
+| Mono | 明るさだけのグレーにしてからディザリングし、白と黒だけの結果にします。オンにすると閾値が 128 になり、オフに戻すと元の値に戻ります |
+| ColorModeChange | 色チャンネルを入れ替えながら誤差を拡散します。色がずれて、ざらついた模様になります |
+| Dithering | オフにすると、ディザリング前の絵をそのまま表示します |
+| Save PNG / Save SVG | 保存します(下記) |
+
+### 画像モードのみ
+| 項目 | 内容 |
+|---|---|
+| 画像 赤 / 緑 / 青 | 各色の値に足し引きします(-255〜+255、0 で変化なし)。ディザリングがオンのときだけ反映されます |
+
+### メッシュと円のモードのみ
+| 項目 | 内容 |
+|---|---|
+| 赤成分 / 緑成分 / 青成分 | 背景メッシュの色 |
+| 円seed | 円の配置と色の乱数の種 |
+| meshseed | メッシュの起伏の乱数の種 |
+| 分割数 | 三角形の細かさ |
+| ノイズ密度 | 起伏の細かさ |
+| 高低差 | 起伏の高さ |
+| Circles | 円の表示と非表示 |
+
+## 保存
+
+- **Save PNG**: キャンバスに見えている絵を、そのまま PNG で保存します。
+- **Save SVG**: ディザリングの結果を、ベクターで保存します。画面と同じドットの幅になります。ディザリングがオフのときは保存できません。
+
+## 処理の流れ
+
+```
+元の絵(メッシュと円 / 読み込んだ画像)
+  → 画面を「解像度」の倍率に縮小コピー
+  → (Mono、色の足し引き)
+  → Web Worker で Floyd-Steinberg 法のディザリング
+  → 補間なし(NEAREST)でキャンバスいっぱいに拡大して表示
+```
+
+## ファイル構成
+
+| ファイル | 役割 |
+|---|---|
+| `index.html` | ページとパネルの CSS |
+| `lib/index.js` | 作品の本体(描画、パネル、画像の読み込み、処理の制御) |
+| `lib/lib.js` | PNG と SVG の保存処理 |
+| `lib/floyd-steinberg-module.js` | ディザリングの処理(Worker への受け渡し) |
+| `lib/dithering-worker.js` | Web Worker 上で実行するディザリング本体 |
+| `lib/dithering-presets.js` | ディザリングのプリセット(モジュールが読み込む) |
+| `lib/p5.min.js` | p5.js 2.0.5 |
+| `shaders/` | メッシュと円の絵に、深度で明暗をつけるシェーダー |
+
+## 注意
+
+- 大きい画像や、解像度を上げた状態では、ディザリングの処理が重くなります。動作が重いときは、解像度を下げてください。
+- ブラウザのウィンドウより大きいキャンバスは、はみ出した部分が見えません(スクロールもできません)。

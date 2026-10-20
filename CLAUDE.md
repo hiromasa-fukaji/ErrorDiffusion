@@ -4,73 +4,59 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a generative artwork template using p5.js with WEBGL renderer. The artwork accepts URL query parameters to control various visual aspects and supports saving the canvas as an image.
+A p5.js (WEBGL) tool that applies Floyd-Steinberg error-diffusion dithering to either a generated 3D scene (triangle mesh + circles) or a user-loaded image. The result can be saved as PNG or SVG. User-facing documentation is in README.md (Japanese).
 
 ## Architecture
 
-### Core Components
+### Files
 
-- **index.html**: Main HTML file that loads p5.js from CDN and includes the canvas element
-- **index.js**: Main artwork logic with p5.js setup and draw functions, handles query parameters
-- **lib.js**: Utility functions for saving canvas as image (triggered by 's' key)
+- **index.html**: Page, panel CSS. Loads `lib/p5.min.js`, `lib/lib.js`, and `lib/index.js` (ES module) in that order.
+- **lib/index.js**: Main logic. p5 `setup`/`draw`, control panel (`createDebugSliders`), scene rendering (`drawImage`, `drawWavePlane`), image loading, and the dithering pipeline (`processImage`).
+- **lib/lib.js**: Classic script exposing `window.saveCanvasPng` and `window.saveDitheredSvg` (called from panel buttons).
+- **lib/floyd-steinberg-module.js**: `FloydSteinbergProcessor`. Sends pixels to the worker (falls back to synchronous processing).
+- **lib/dithering-worker.js**: Web Worker running the dithering loop. Imported by path `lib/dithering-worker.js` (relative to the page).
+- **lib/dithering-presets.js**: Presets imported by the module (not used by `index.js`, but the import must stay).
+- **shaders/graphic.vert, graphic.frag**: Shade the scene by depth. Only used for the scene, not for loaded images.
 
-### Query Parameter System
+### Pipeline
 
-The artwork accepts 5 URL parameters (a, b, c, d, e) that control:
-- `a` (0.1-1.0): Background hue multiplier
-- `b` (0.1-1.0): Fill hue multiplier
-- `c` (0.1-1.0): Stroke weight multiplier
-- `d` (0.1-1.0): Shape size multiplier
-- `e` (boolean): Toggle between box (true) and cylinder (false)
+```
+source (scene in myBuffer + shader | loaded image texture)
+  -> get() canvas, copy downscaled into sourceImage (size = canvas * resolution slider)
+  -> optional color offsets (image mode) and Mono (grayscale) on sourceImage
+  -> worker dithering (per-channel threshold + error diffusion)
+  -> processedImage drawn on a plane with NEAREST filtering
+```
 
-Example: `index.html?a=0.1&b=0.1&c=0.9&d=0.5&e=true`
+### Things to know before editing
+
+- The sketch uses `noLoop()`. The loop is driven by `processImage()` calling `redraw()` when the worker finishes. When Dithering is off, `draw()` schedules its own `requestAnimationFrame` redraw.
+- NEAREST filtering is set through p5 internals: `p5.instance._renderer.getTexture(img).setInterpolation(NEAREST, NEAREST)`. p5 is pinned to 2.0.5 in `lib/`; re-check this if p5 is upgraded. `noSmooth()` does not affect texture filtering in WEBGL.
+- Canvas ID must be `artCanvas` (used by PNG save). Canvas size is 630x891 in scene mode and follows the loaded image in image mode (long side capped at `MAX_SIDE` = 4096).
+- `saveDitheredSvg` reproduces the on-screen NEAREST cell edges (`ceil(i * out / src - 0.5)`) so the SVG matches the canvas pixel for pixel, including uneven cell widths when the scale is not an integer.
+- Dithering is per channel (R, G, B independent) unless ColorModeChange (colorMode 4) is on, which rotates channels each time error is added. Mono works by converting `sourceImage` to gray before dithering; the worker is unchanged.
+- The worker ignores alpha. Transparent image areas are composited on a white background before dithering.
+- Scene-only and image-only sliders live in `sceneBox` / `imageBox` and are shown/hidden when an image is loaded or cleared.
+- The `d` key only toggles panel visibility. Slider values are read every frame.
 
 ## Development Commands
 
-### Local Development Server
-- `npm run dev` - Start live-server with hot reload (port 8080)
-- `npm run dev:sync` - Start browser-sync with file watching and multi-device sync
-- `npm start` - Start Python HTTP server without hot reload (port 8000)
+- `npm run dev` - live-server with hot reload (port 8080)
+- `npm run dev:sync` - browser-sync with file watching
+- `npm start` - Python HTTP server (port 8000)
 
-Note: All commands use npx, so no dependencies need to be installed.
-
-### Other Commands
-- Press 's' key to save the current canvas as PNG image
+All commands use npx, so no dependencies need to be installed.
 
 ## Development Process
 
 ### Browser-Based Error Checking
-When developing with p5.js, always follow this iterative testing process:
+1. Run `npm run dev`.
+2. Open DevTools Console in the browser.
+3. After each change, check the Console for errors and fix them one at a time.
 
-1. **Start Development Server**: Run `npm run dev` to start live-server
-2. **Open Browser DevTools**: Press F12 and navigate to Console tab
-3. **Make Code Changes**: Edit files in your code editor
-4. **Check Browser Immediately**: Live-server auto-reloads, check Console for errors
-5. **Fix Errors Incrementally**: Address one error at a time, test after each fix
-6. **Repeat Until Clean**: Continue until no errors appear in Console
+Never commit code that logs console errors.
 
-### Error Checking Workflow
-```
-Code Change → Browser Auto-Reload → Check Console → Fix Errors → Repeat
-```
-
-### Common p5.js 2.x Issues to Watch For
-- **Async/Await**: File loading requires `await` in `async function preload()`
-- **Function Arguments**: Verify correct parameter order (e.g., `textToModel(str, x, y, width, height, options)`)
-- **Shader Loading**: Use fallback embedded shaders if `loadStrings()` fails
-- **WebGL Context**: Ensure WEBGL mode is properly initialized before using 3D features
-
-### Best Practices
-- Never commit code with console errors
-- Test each feature incrementally
-- Use console.log() for debugging during development
-- Keep browser DevTools open during development sessions
-
-## Key Technical Details
-
-- Uses p5.js v2.0.5 loaded locally from lib/p5.min.js
-- WEBGL renderer for 3D graphics
-- Canvas ID must be `artCanvas` for save functionality
-- HSB color mode for color calculations
-- Automatic canvas resizing on window resize
-- 3D text rendering using textToModel() function
+### Common p5.js 2.x Notes
+- File/asset loading is async: `await loadStrings(...)`, `await loadImage(...)`.
+- Verify argument order of p5 functions against the 2.x docs.
+- WEBGL mode must be initialized before using 3D features.
