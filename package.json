@@ -1,0 +1,12 @@
+{
+  "name": "myaf2025",
+  "version": "1.0.0",
+  "description": "Generative artwork template using p5.js",
+  "scripts": {
+    "dev": "npx live-server",
+    "dev:sync": "npx browser-sync start --server --files '*.html, *.js, *.css'",
+    "start": "python3 -m http.server 8000"
+  },
+  "keywords": ["p5js", "generative-art", "webgl"],
+  "license": "MIT"
+}

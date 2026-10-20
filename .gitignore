@@ -1,0 +1,65 @@
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Editor directories and files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Lock files (using npx, no need for lock files)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Temporary files
+.tmp/
+*.tmp
+*.temp
+.cache/
+tmp/
+temp/
+
+# Build outputs
+dist/
+build/
+out/
+
+# Logs
+*.log
+logs/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Debug
+debug/
+
+# Testing
+coverage/
+.nyc_output/
+
+# Optional: Exported images (uncomment if you don't want to track saved artwork)
+# monos_*.png
+
+.playwright-mcp/
+signal/
