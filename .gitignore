@@ -63,3 +63,6 @@ coverage/
 
 .playwright-mcp/
 signal/
+
+# Sample images and exported results
+sample/
